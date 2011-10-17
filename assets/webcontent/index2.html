@@ -1,0 +1,31 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+		<title>Hello Sensors</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width,initial-scale="1.0">
+		<script src="js/sensor-api.js"></script>
+		
+		<script>
+			var x = new SensorConnection('sensor:Accelerometer');
+			
+			function test() {
+				document.getElementById('res').textContent = x.startWatch();
+			}
+		</script>
+		
+		<style>
+			body{
+				background-color: white;
+				color: back;
+			}
+		</style>
+	</head>
+	
+	<body>
+		<input type=button value=Test onclick="test()">
+		
+		<p id="res"></p>
+	</body>
+</html>

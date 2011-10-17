@@ -1,0 +1,81 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+		<title>Hello Sensors</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width,initial-scale="1.0">
+		<script src="js/sensor-api.js"></script>
+		<script src="js/vibrator-api.js"></script>
+		<script>
+			"use strict";
+			
+			var sensorConnection = new navigator.SensorConnection('sensor:Accelerometer');
+			// alert(sensorConnection);
+			
+			function res(text) {
+				document.getElementById('res').textContent = text;
+			}
+			
+			function doSensorType() {
+				alert(sensorConnection);
+				res(sensorConnection.sensor.type);
+			}
+			
+			function doSensorVendor() {
+				res(sensorConnection.sensor.vendor);
+			}
+			
+			function doSensorName() {
+				res(sensorConnection.sensor.name);
+			}
+			
+			function doSensorDelay() {
+				res(sensorConnection.sensor.minDelay);
+			}
+			
+			function doSensorRes() {
+				res(sensorConnection.sensor.resolution);
+			}
+			
+			function clean() {
+				res('');		
+			}
+			
+			function doVibrate() {
+				var reqID = navigator.service.vibrator.simple(1000);
+				res(reqID);
+				
+				// alert(navigator.service.vibrator.connect());
+			}
+			
+			function doVibratePattern() {
+				navigator.service.vibrator.multiple([100,200,400,100],1);
+				// alert(navigator.service.vibrator.connect());
+			}
+		</script>
+		
+		<style>
+			body{
+				background-color: white;
+				color: back;
+			}
+		</style>
+	</head>
+	
+	<body>
+		<input type="button" value="Sensor type" onclick="doSensorType()"><br>
+		<input type="button" value="Sensor vendor" onclick="doSensorVendor()"><br>
+		<input type="button" value="Sensor name" onclick="doSensorName()"><br>
+		<input type="button" value="Sensor minDelay" onclick="doSensorDelay()"><br>
+		<input type="button" value="Sensor Res" onclick="doSensorRes()"><br>
+		
+		<input type="button" value="Vibrate" onclick="doVibrate()"><br>
+		<input type="button" value="Vibrate Pattern" onclick="doVibratePattern()"><br>
+		
+		<input type="button" value="Clear" onclick="clean()">
+		<p id="res"></p>
+		<p id="res2"></p>
+		<p id="res3"></p>
+	</body>
+</html>
