@@ -40,33 +40,41 @@
 					ins();
 				}
 				sensorConnection.startWatch(200);
+				sensorConnection.onsensordata = function(e) {
+					window.console.log('Sensor data available');
+					// this.sensor.type 
+				}
 			}
 			
 			function ins() {
 				sensorConnection = new navigator.SensorConnection('sensor:Accelerometer');
-				sensorConnection.onsensordata = function(e) {
-					// window.console.log('Sensor data available');
-					// this.sensor.type 
-					
-					document.getElementById('res2').textContent = e.data.x;
-				}
-				sensorConnection.onstatuschange = function() {
-					document.getElementById("res3").textContent = this.status;
-				}
 			}
 			
 			function doEndWatch() {
-				if(sensorConnection.status == "watching") {
-					sensorConnection.endWatch();
-				}
+				sensorConnection.endWatch();
 			}
 			
 			function clean() {
 				res('');		
 			}
 			
+			function doVibrate() {
+				var options = { style: 'sharp'};
+				options.magnitude = document.getElementById('inx').value;
+				
+				window.console.log(document.getElementById('dur').value);
+				var reqID = navigator.service.vibrator.play(Number(document.getElementById('dur').value),options);
+				res(reqID);
+				
+				// alert(navigator.service.vibrator.connect());
+			}
 			
-			setTimeout(doEndWatch,30000);
+			function doVibratePattern() {
+				navigator.service.vibrator.multiple([100,200,400,100],1);
+				// alert(navigator.service.vibrator.connect());
+			}
+			
+			setTimeout(doEndWatch,10000);
 		</script>
 		
 		<style>
@@ -78,23 +86,29 @@
 	</head>
 	
 	<body>
-		<label>Sensor Type:
-			<select>
-				<option>Accelerometer</option>
-				<option>Temperature</option>
-			</select>
-		</label>
 		<input type="button" value="Instantiate" onclick="ins()"><input type="button" value="Start Watch" onclick="doStartWatch()"><br>
-		<input type="button" value="End Watch" onclick="doEndWatch()"><input type="button" value="Kill All" onclick="navigator.sensors.killAll()"><br><br>
+		<input type="button" value="End Watch" onclick="doEndWatch()"><br>
 		<input type="button" value="Sensor vendor" onclick="doSensorVendor()"><br>
 		<input type="button" value="Sensor name" onclick="doSensorName()"><br>
 		<input type="button" value="Sensor minDelay" onclick="doSensorDelay()"><br>
 		<input type="button" value="Sensor Res" onclick="doSensorRes()"><br>
 		
+		<fieldset>
+		<label>Duration:<input type=number id="dur" size=8></label><br>
+		<label>Intensity:<input type=number id="inx" size=8></label><br>
+		<label>Style:<select id="st">
+						<option>Strong</option>
+						<option>Sharp</option>
+					</select>
+		</label><br>
+		</fieldset>
+		
+		<input type="button" value="Vibrate" onclick="doVibrate()">
+		<input type="button" value="Cancel Vib" onclick="navigator.service.vibrator.cancelAll()"><br>
 		
 		<input type="button" value="Clear" onclick="clean()">
 		<p id="res"></p>
-		<p><span>Sensor Data: </span><span id="res2"></span></p>
-		<p><span>Status: </span><span id="res3" style="color: green"></span></p>
+		<p id="res2"></p>
+		<p id="res3"></p>
 	</body>
 </html>

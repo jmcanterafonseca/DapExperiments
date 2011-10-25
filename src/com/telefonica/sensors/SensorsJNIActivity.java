@@ -23,7 +23,10 @@ public class SensorsJNIActivity extends Activity {
 		appView.setWebChromeClient(new MyWebChromeClient());
 		appView.getSettings().setJavaScriptEnabled(true);
 
-		appView.addJavascriptInterface(new SensorImpl(), "_internal_sensor");
+		SensorImpl impl = new SensorImpl(appView);
+		impl.init();
+		
+		appView.addJavascriptInterface(impl, "_internal_sensor");
 		appView.addJavascriptInterface(new VibratorImpl((Vibrator)getSystemService(VIBRATOR_SERVICE)), "_internal_vibrator");
 
 		appView.loadUrl("file:///android_asset/webcontent/index.html");
