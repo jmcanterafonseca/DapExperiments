@@ -19,18 +19,41 @@
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "sensors-library", __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "sensors-library", __VA_ARGS__))
 
-static const char* ACCEL_URI = "sensor:Accelerometer";
 static pthread_mutex_t list_mutex;
 
 static JavaVM* cached_jvm;
 static jclass class_SensorImpl = NULL;
-static jclass class_SensorEvent = NULL;
 static jmethodID meth_sensorData = NULL;
-static jmethodID meth_consEvent = NULL;
-static jmethodID meth_sensorData2 = NULL;
-static jfieldID field_handle = NULL;
-static jfieldID field_timestamp = NULL;
-static jfieldID field_data = NULL;
+
+#define S_ACCEL "Accelerometer"
+#define S_GYR_ "Gyroscope"
+#define S_TEMP "Temperature"
+#define S_AMB_LIGHT "AmbientLight"
+#define S_AMB_NOISE "AmbientNoise"
+#define S_MAG_FIELD "MagneticField"
+#define S_ATM_PRESSURE "AtmPressure"
+#define S_PROXIMITY "Proximity"
+#define S_ORIENTATION "Orientation"
+#define S_RELATIVE_HUMIDITY "RelHumidity"
+#define S_GRAVITY "Gravity"
+#define S_LIN_ACCEL "LinearAcceleration"
+#define S_ROT_VECT "RotationVector"
+#define UNKNOWN "unknown"
+
+#define SENSOR_TYPE_ACCELEROMETER       1
+#define SENSOR_TYPE_MAGNETIC_FIELD      2
+#define SENSOR_TYPE_ORIENTATION         3
+#define SENSOR_TYPE_GYROSCOPE           4
+#define SENSOR_TYPE_LIGHT               5
+#define SENSOR_TYPE_PRESSURE            6
+#define SENSOR_TYPE_TEMPERATURE         7
+#define SENSOR_TYPE_PROXIMITY           8
+#define SENSOR_TYPE_GRAVITY             9
+#define SENSOR_TYPE_LINEAR_ACCELERATION 10
+#define SENSOR_TYPE_ROTATION_VECTOR     11
+#define SENSOR_TYPE_RELATIVE_HUMIDITY   12
+
+
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* jvm, void *reserved) {
 	JNIEnv *env;
@@ -54,8 +77,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* jvm, void *reserved) {
 		return JNI_ERR;
 	}
 
-	meth_sensorData = (*env)->GetStaticMethodID(env, clsSensorImpl, "sensorDataCB",
-			"(ILjava/lang/String;)V");
+	meth_sensorData = (*env)->GetStaticMethodID(env, clsSensorImpl,
+			"sensorDataCB", "(ILjava/lang/String;)V");
 	if (meth_sensorData == NULL) {
 		return JNI_ERR;
 	}
@@ -77,7 +100,7 @@ struct SensorCnxData {
 	const char* status;
 	int interval;
 	int hasToFinish;
-	int handle;
+	// int handle;
 };
 
 typedef struct SensorThreadData SensorThreadData;
@@ -85,6 +108,7 @@ typedef struct SensorThreadData SensorThreadData;
 struct SensorThreadData {
 	SensorCnxData* sdata;
 	jobject target;
+	int handle;
 };
 
 typedef struct SensorCnxListNode SensorCnxListNode;
@@ -142,14 +166,72 @@ static void removeNode(SensorCnxListNode* node) {
 	pthread_mutex_unlock(&list_mutex);
 }
 
-static int getSensorType(const char* uri) {
+static int getSensorTypeAsInt(const char* uri) {
 	int dev = -1;
 
-	if (strcmp(uri, ACCEL_URI) == 0) {
+	if (strcmp(S_ACCEL, uri) == 0) {
 		dev = ASENSOR_TYPE_ACCELEROMETER;
+	} else if (strcmp(S_AMB_LIGHT, uri) == 0) {
+		dev = ASENSOR_TYPE_LIGHT;
+	} else if (strcmp(S_GYR_, uri)== 0) {
+		dev = ASENSOR_TYPE_GYROSCOPE;
+	} else if (strcmp(S_PROXIMITY, uri)== 0) {
+		dev = ASENSOR_TYPE_PROXIMITY;
+	} else if (strcmp(S_MAG_FIELD, uri)== 0) {
+		dev = ASENSOR_TYPE_MAGNETIC_FIELD;
+	}
+	else if (strcmp(S_TEMP, uri)== 0) {
+		dev = SENSOR_TYPE_TEMPERATURE;
+	}
+	else if (strcmp(S_ORIENTATION, uri)== 0) {
+		dev = SENSOR_TYPE_ORIENTATION;
+	}
+	else if (strcmp(S_GRAVITY, uri)== 0) {
+		dev = SENSOR_TYPE_GRAVITY;
+	}
+	else if (strcmp(S_LIN_ACCEL, uri)== 0) {
+		dev = SENSOR_TYPE_LINEAR_ACCELERATION;
+	}
+	else if (strcmp(S_RELATIVE_HUMIDITY, uri)== 0) {
+		dev = SENSOR_TYPE_RELATIVE_HUMIDITY;
+	}
+	else if (strcmp(S_ROT_VECT, uri)== 0) {
+			dev = SENSOR_TYPE_ROTATION_VECTOR;
 	}
 
 	return dev;
+}
+
+/*
+#define SENSOR_TYPE_ACCELEROMETER       1
+#define SENSOR_TYPE_MAGNETIC_FIELD      2
+#define SENSOR_TYPE_ORIENTATION         3
+#define SENSOR_TYPE_GYROSCOPE           4
+#define SENSOR_TYPE_LIGHT               5
+#define SENSOR_TYPE_PRESSURE            6
+#define SENSOR_TYPE_TEMPERATURE         7
+#define SENSOR_TYPE_PROXIMITY           8
+#define SENSOR_TYPE_GRAVITY             9
+#define SENSOR_TYPE_LINEAR_ACCELERATION 10
+#define SENSOR_TYPE_ROTATION_VECTOR     11
+#define SENSOR_TYPE_RELATIVE_HUMIDITY   12 */
+
+
+static const char* getSensorTypeAsString(int type) {
+	static const char* stypes[] = { NULL, S_ACCEL, S_MAG_FIELD, S_ORIENTATION,
+	S_GYR_, S_AMB_LIGHT, S_ATM_PRESSURE, S_TEMP, S_PROXIMITY,S_GRAVITY,S_LIN_ACCEL,S_ROT_VECT,S_RELATIVE_HUMIDITY };
+	static const char* unk = UNKNOWN;
+	const char* ret = unk;
+
+	if (type <= 12) {
+		ret = stypes[type];
+	}
+
+	if (ret == NULL) {
+		ret = unk;
+	}
+
+	return ret;
 }
 
 static SensorCnxListNode* handle2Node(int handle) {
@@ -159,7 +241,7 @@ static SensorCnxListNode* handle2Node(int handle) {
 }
 
 static int node2Handle(SensorCnxListNode* node) {
-	return (int)node;
+	return (int) node;
 }
 
 static SensorCnxData* getCnxData(int handle) {
@@ -189,13 +271,30 @@ static int addSensor(ASensorRef sensor) {
 
 	LOGI("Sensor Added: %d", sensor);
 
-	node->data->handle = (int) node;
+	// node->data->handle = (int) node;
 	node->data->status = "open";
 
-	return node->data->handle;
+	return (int)node;
 }
 
-JNIEXPORT jint JNICALL Java_com_telefonica_sensors_SensorNative_connect(
+static char* getSensorMetadata(int handle,ASensorRef sensor) {
+	char* ret = malloc(512);
+
+	bzero(ret,sizeof(ret));
+
+	const char* vendor = ASensor_getVendor(sensor);
+	const char* type = getSensorTypeAsString(ASensor_getType(sensor));
+	const char* name = ASensor_getName(sensor);
+	int minDelay = ASensor_getMinDelay(sensor) / 1000;
+	float resolution = ASensor_getResolution(sensor);
+
+	sprintf(ret,"{handle:%d,sensor:{vendor:'%s',type:'%s',name:'%s',minDelay: %d, resolution: %f}}",
+											handle,vendor,type,name,minDelay,resolution);
+
+	return ret;
+}
+
+JNIEXPORT jstring JNICALL Java_com_telefonica_sensors_SensorNative_connect(
 		JNIEnv* env, jobject thiz, jstring uri) {
 	ASensorManager* sensorManager;
 	ASensorRef sensor;
@@ -208,79 +307,23 @@ JNIEXPORT jint JNICALL Java_com_telefonica_sensors_SensorNative_connect(
 	sensorManager = ASensorManager_getInstance();
 
 	sensor = ASensorManager_getDefaultSensor(sensorManager,
-			getSensorType(suri));
+			getSensorTypeAsInt(suri));
 
 	int handle = addSensor(sensor);
 
 	LOGI("Connected!. Handle: %d", handle);
 
-	return handle;
+	char* output = getSensorMetadata(handle,sensor);
 
-}
+	jstring result = (*env)->NewStringUTF(env, output);
 
-JNIEXPORT jstring JNICALL Java_com_telefonica_sensors_SensorNative_getVendor(
-		JNIEnv* env, jobject thiz, jint handle) {
-	ASensorRef sensor;
+	LOGI("Returned metadata: %s",output);
 
-	LOGI("getVendor(). Handle: %d", handle);
-
-	sensor = getSensor(handle);
-
-	LOGI("Vendor: %s", ASensor_getVendor(sensor));
-
-	return (*env)->NewStringUTF(env, ASensor_getVendor(sensor));
-}
-
-JNIEXPORT jstring JNICALL Java_com_telefonica_sensors_SensorNative_getType(
-		JNIEnv* env, jobject thiz, jint handle) {
-
-	LOGI("getType(). Handle: %d", handle);
-
-	ASensorRef sensor = getSensor(handle);
-	char* typeString;
-
-	typeString = malloc(25);
-	sprintf(typeString, "%d", ASensor_getType(sensor));
-
-	jstring result = (*env)->NewStringUTF(env, typeString);
-
-	free(typeString);
+	free(output);
 
 	return result;
 }
 
-JNIEXPORT jstring JNICALL Java_com_telefonica_sensors_SensorNative_getName(
-		JNIEnv* env, jobject thiz, jint handle) {
-	ASensor const* sensor;
-
-	LOGI("getName(). Handle: %d", handle);
-
-	sensor = getSensor(handle);
-
-	return (*env)->NewStringUTF(env, ASensor_getName(sensor));
-}
-
-JNIEXPORT jint JNICALL Java_com_telefonica_sensors_SensorNative_getMinDelay(
-		JNIEnv* env, jobject thiz, jint handle) {
-	ASensor const* sensor;
-
-	LOGI("geMinDelay(). Handle: %d", handle);
-
-	sensor = getSensor(handle);
-
-	return ASensor_getMinDelay(sensor);
-}
-
-JNIEXPORT jfloat JNICALL Java_com_telefonica_sensors_SensorNative_getResolution(
-		JNIEnv* env, jobject thiz, jint handle) {
-	ASensor const* sensor;
-
-	LOGI("getResolution(). Handle: %d", handle);
-
-	sensor = getSensor(handle);
-
-	return ASensor_getResolution(sensor);
-}
 
 // Callback function called new sensor data is available
 static int sensorCB(int fd, int events, void* data) {
@@ -294,11 +337,38 @@ static int sensorCB(int fd, int events, void* data) {
 }
 
 // Serializes to JSON format the event
-static char* serializeEvent(ASensorEvent asv) {
-	char* ret = malloc(200);
-	bzero(ret,sizeof(ret));
+static char* serializeEvent(ASensorEvent asv,int type) {
+	char* ret = malloc(256);
+	bzero(ret, sizeof(ret));
 
-	sprintf(ret,"{data: {x:%f,y:%f,z:%f}}",asv.acceleration.x,asv.acceleration.y,asv.acceleration.z);
+	switch(type) {
+		case SENSOR_TYPE_ACCELEROMETER:
+		case SENSOR_TYPE_GRAVITY:
+		case SENSOR_TYPE_ROTATION_VECTOR:
+		case SENSOR_TYPE_LINEAR_ACCELERATION:
+		case SENSOR_TYPE_GYROSCOPE:
+		case SENSOR_TYPE_MAGNETIC_FIELD:
+			sprintf(ret, "{data: {x:%f,y:%f,z:%f}", asv.data[0],
+					asv.data[1], asv.data[2]);
+		break;
+
+		case SENSOR_TYPE_LIGHT:
+		case SENSOR_TYPE_PROXIMITY:
+		case SENSOR_TYPE_TEMPERATURE:
+			sprintf(ret, "{data: %f", asv.data[0]);
+		break;
+
+		case SENSOR_TYPE_ORIENTATION:
+			sprintf(ret, "{data: {alpha:%f,beta:%f,gamma:%f}", asv.data[0],
+								asv.data[1], asv.data[2]);
+		break;
+
+		// case SENSOR_TYPE
+	}
+
+	char aux[64];
+	sprintf(aux,",timestamp:%f}",asv.timestamp);
+	strcat(ret,aux);
 
 	return ret;
 }
@@ -315,13 +385,14 @@ static void on_sensor_data(ASensorEvent event, int handle, jobject target) {
 
 	// jobject obj = (*env)->NewObject(env, clsSensorEvent, mc);
 
-	jstring str = (*env)->NewStringUTF(env,serializeEvent(event));
+	ASensorRef sensor = getCnxData(handle)->sensor;
 
-	(*env)->CallStaticVoidMethod(env, c, meth_sensorData, handle,str);
+	jstring str = (*env)->NewStringUTF(env, serializeEvent(event,ASensor_getType(sensor)));
+
+	(*env)->CallStaticVoidMethod(env, c, meth_sensorData, handle, str);
 
 	(*cached_jvm)->DetachCurrentThread(cached_jvm);
 }
-
 
 // Thread in charge of watching
 static void* watcher(void* param) {
@@ -341,7 +412,7 @@ static void* watcher(void* param) {
 
 	ASensorEventQueue_enableSensor(the_queue, wd->sensor);
 
-	ASensorEvent sensorEvents[20];
+	ASensorEvent sensorEvents[1];
 
 	int finish = 0;
 
@@ -353,12 +424,12 @@ static void* watcher(void* param) {
 			LOGI("Num Events: %d FD: %d\n", events, fd);
 			bzero(sensorEvents, sizeof(sensorEvents));
 			ssize_t numEvents = ASensorEventQueue_getEvents(the_queue,
-					sensorEvents, 20);
+					sensorEvents, 1);
 			LOGI("Num events got: %d", numEvents);
 			if (numEvents > 0) {
 				LOGI(
 						"aaaa Events received: %f %f %f\n", sensorEvents[0].acceleration.x, sensorEvents[0].acceleration.y, sensorEvents[0].acceleration.z);
-				on_sensor_data(sensorEvents[0], wd->handle, sthr->target);
+				on_sensor_data(sensorEvents[0], sthr->handle, sthr->target);
 			}
 		} else if (pollRes == ALOOPER_POLL_WAKE) {
 			finish = 1;
@@ -381,25 +452,26 @@ JNIEXPORT void JNICALL Java_com_telefonica_sensors_SensorNative_watch(JNIEnv* en
 
 	LOGI("Watch invoked at the native layer");
 
-pthread_t theThread;
+	pthread_t theThread;
 
-SensorCnxData* wd = getCnxData(handle);
+	SensorCnxData* wd = getCnxData(handle);
 
-SensorThreadData* sthr = malloc(sizeof(SensorThreadData));
-sthr->sdata = wd;
-sthr->target= thiz;
+	SensorThreadData* sthr = malloc(sizeof(SensorThreadData));
+	sthr->sdata = wd;
+	sthr->target= thiz;
+	sthr->handle = handle;
 
-wd->hasToFinish = 0;
+	wd->hasToFinish = 0;
 
-wd->status = "watching";
+	wd->status = "watching";
 
-int rc = pthread_create(&theThread, NULL, watcher, (void *) sthr);
+	int rc = pthread_create(&theThread, NULL, watcher, (void *) sthr);
 }
 
 static void doEnd(int handle) {
-	SensorCnxData* cd = getCnxData(handle);
+SensorCnxData* cd = getCnxData(handle);
 
-	if(strcmp(cd->status,"watching") == 0) {
+	if (strcmp(cd->status, "watching") == 0) {
 		cd->hasToFinish = 1;
 		cd->status = "open";
 		ALooper_wake(cd->looper);
@@ -409,7 +481,7 @@ static void doEnd(int handle) {
 JNIEXPORT void JNICALL Java_com_telefonica_sensors_SensorNative_end(JNIEnv* env,
 	jobject thiz, jint handle) {
 
-LOGI("End Watch invoked. Handle: %d", handle);
+	LOGI("End Watch invoked. Handle: %d", handle);
 
 	doEnd(handle);
 
@@ -418,7 +490,7 @@ LOGI("End Watch invoked. Handle: %d", handle);
 static void doKill(int handle) {
 	doEnd(handle);
 
-	// Remove the node
+	 // Remove the node
 	SensorCnxListNode* node = handle2Node(handle);
 
 	removeNode(node);
@@ -427,7 +499,7 @@ static void doKill(int handle) {
 JNIEXPORT void JNICALL Java_com_telefonica_sensors_SensorNative_kill(JNIEnv* env,
 	jobject thiz, jint handle) {
 
-	LOGI("Kill invoked. Handle: %d",handle);
+	LOGI("Kill invoked. Handle: %d", handle);
 
 	doKill(handle);
 }
@@ -443,4 +515,50 @@ JNIEXPORT void JNICALL Java_com_telefonica_sensors_SensorNative_killAll(JNIEnv* 
 	}
 
 }
+
+
+
+JNIEXPORT jstring JNICALL Java_com_telefonica_sensors_SensorNative_listSensors(
+JNIEnv* env, jobject thiz) {
+
+	LOGI("List sensors invokedd");
+
+
+	ASensorList list;
+
+	int num = ASensorManager_getSensorList(ASensorManager_getInstance(), &list);
+
+	LOGI("Num Sensors Discovered: %d",num);
+
+	int j;
+	char* buffer = malloc(256);
+	bzero(buffer,sizeof(buffer));
+	strcat(buffer,"[");
+
+	for (j = 0; j < num; j++) {
+		ASensorRef sensor = list[j];
+		int type = ASensor_getType(sensor);
+		const char* typeName = getSensorTypeAsString(type);
+
+		LOGI("Type name: %s",typeName);
+
+		strcat(buffer,"'");
+		strcat(buffer,typeName);
+		strcat(buffer,"'");
+		if(j < num - 1) {
+			strcat(buffer,",");
+		}
+	}
+
+	strcat(buffer,"]");
+
+	LOGI("List Sensors returned: %s",buffer);
+
+	jstring result = (*env)->NewStringUTF(env, buffer);
+
+	free(buffer);
+
+	return result;
+}
+
 

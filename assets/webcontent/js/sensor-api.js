@@ -5,10 +5,13 @@ if(!window.navigator.SensorConnection) {
 		var suri = sensorURI;
 		var connectionHandle;
 		var that = this;
-		
-		connectionHandle = _internal_sensor.connect(suri);
+			
+		var metadata = eval('(' + _internal_sensor.connect(sensorURI) + ')');
+		connectionHandle = metadata.handle;
 		
 		connections[connectionHandle.toString()] = this;
+		
+		this.sensor = metadata.sensor;
 		
 		function setStatus(val) {
 			that.status = val;
@@ -17,25 +20,21 @@ if(!window.navigator.SensorConnection) {
 			}
 		}
 		
-		this.startWatch = function(interval) {
-			_internal_sensor.watch(connectionHandle,interval);
-			setStatus("watching");
+		this.startWatch = function(options) {
+			if(this.status == "connected") {
+				_internal_sensor.watch(connectionHandle,options.interval);
+				setStatus("watching");
+			}
 		}
 		
 		this.endWatch = function() {
-			_internal_sensor.end(connectionHandle);
-			setStatus("open");
+			if(this.status == "watching") {
+				_internal_sensor.end(connectionHandle);
+				setStatus("connected");
+			}
 		}
 		
-		this.sensor = new function() {		
-			this.type = (function() { return _internal_sensor.getType(connectionHandle) })();
-			this.name = (function() { return _internal_sensor.getName(connectionHandle) })();
-			this.vendor = (function() { return _internal_sensor.getVendor(connectionHandle) })();
-			this.minDelay = (function() { return _internal_sensor.getMinDelay(connectionHandle) })();
-			this.resolution = (function() { return _internal_sensor.getResolution(connectionHandle) })();
-		}
-		
-		setStatus("open");
+		setStatus("connected");
 	}
 }
 
@@ -43,6 +42,11 @@ if(!window.navigator.sensors) {
 	window.navigator.sensors = new function() {
 		this.killAll = function() {
 			_internal_sensor.killAll();
+		}
+		
+		this.list = function() {
+			window.console.log("Listed");
+			return eval(_internal_sensor.list());
 		}
 	}
 }

@@ -8,32 +8,11 @@ public class SensorImpl {
 	private SensorNative _native;
 	private static WebView wv;
 
-	public String getVendor(int handle) {
-		// TODO Auto-generated method stub
-		return _native.getVendor(handle);
-	}
-
-	public String getType(int handle) {
-		// TODO Auto-generated method stub
-		return _native.getType(handle);
-	}
-	
-	public String getName(int handle) {
-		// TODO Auto-generated method stub
-		return _native.getName(handle);
-	}
-	
 	public int getMinDelay(int handle) {
 		// TODO Auto-generated method stub
 		return _native.getMinDelay(handle);
 	}
 	
-	public float getResolution(int handle) {
-		// TODO Auto-generated method stub
-		return _native.getResolution(handle);
-	}
-	
-
 	public void watch(int handle,int delay) {
 		_native.watch(handle, delay);
 	}
@@ -50,7 +29,7 @@ public class SensorImpl {
 		_native.killAll();
 	}
 	
-	public int connect(String uri) {
+	public String connect(String uri) {
 		return _native.connect(uri);
 	}
 	
@@ -70,5 +49,9 @@ public class SensorImpl {
 	
 	public void init() {
 		// _native.setEventTarget(this);
+	}
+	
+	public String list() {
+		return _native.listSensors();
 	}
 }
